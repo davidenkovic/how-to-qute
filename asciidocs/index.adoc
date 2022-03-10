@@ -1,0 +1,218 @@
+= How 2 Qute
+
+== Read CSV
+
+.ReadFile
+[source,java]
+----
+try {
+    var toLocation = Files.readAllLines(Path.of(fileName), StandardCharsets.UTF_8)
+            .stream()
+            .limit(5)
+            .collect(Collectors.toList());
+
+    String location = toLocation.get(4).split(":")[1].replace(" ","");
+
+    Files.readAllLines(Path.of(fileName), StandardCharsets.UTF_8)
+            .stream()
+            .skip(14)
+            .map(s -> s.split(";"))
+            .forEach(splitted -> saveTempsFromLine(splitted,location));
+
+} catch (IOException e) {
+    e.printStackTrace();
+}
+----
+
+.example
+[source,text]
+----
+#0 parameter: Mean temperature
+#2 unit: 0,1 °C
+#3 source: http://www.zamg.ac.at/histalp
+#4 csv-generated: 2022-01-23T11:44:55Z
+#5 station: Linz-Stadt
+#6 abbr: LIN
+#7 country_code: AT
+#8 longitude: 14.2860
+#9 latitude: 48.2970
+#10 height: 263.0
+#11 height-unit: m
+#12 missing-value: 999999
+#13 ----------------------
+#14 year;jan;feb;mar;...
+#15 1760;999999;999999;...
+
+----
+
+
+.parse Temp
+[source,java]
+----
+private void saveTempsFromLine(String[] temps, String location){
+        String currentYear = temps[0];
+
+        for (int i = 1; i < 12; i++) {
+            if(!temps[i].equals("999999")){
+                Month current = Month.of(i);
+                String yyyymm = String.valueOf(currentYear) + String.format("%02d", current.getValue());
+                Temperature t = new Temperature(Integer.parseInt(yyyymm),current.getValue(), Double.parseDouble(temps[i])/10,location);
+                persist(t);
+            }
+        }
+    }
+----
+
+=== Was ist wichtig bro
+
+* mach das ``persist`` gleich in dem ReadCSV bruder, weil sonst gibt nix Daten
+* mit ``.skip(x)`` kannst irgendwelche zeilen Skipen
+* ``replace(" ","");`` macht whitespace weg
+* Bei Repositories Bruder niemals ``@ApplicationScoped`` vergessen sonst gibts probleme
+
+
+== Entity
+
+.standard ID Bruder
+[source,java]
+----
+@Id
+@GeneratedValue(strategy = GenerationType.IDENTITY)
+private Long id;
+----
+
+.Ctor
+[source,java]
+----
+this.year = Integer.parseInt(String.valueOf(yyyymm).substring(0,4));
+...
+this.month = Month.of(mm);
+...
+this.monthTextual = this.month.getDisplayName(TextStyle.FULL, Locale.ENGLISH).toUpperCase();
+----
+
+}
+
+=== Was ist wichtig bro
+
+* ``substring`` nimmt so paar chars von string raus
+*  ``Month.of(mm);`` nimmt so Monat object mithilfe von zahl
+* ``month.getDisplayName(TextStyle.FULL, Locale.ENGLISH).toUpperCase();`` nimmt von Month object den namen als String
+
+*Alles andere is immer Standart bro aber wenn du deppat bist und nicht weißt dann schau diese link:*
+
+https://davidenkovic.github.io/school-notes/jpa-test.html[JPA-Zusammenfassung]
+
+== Resources
+
+.simpledimple Endpoint
+[source,java]
+----
+@RequestScoped
+@Path("api")
+public class TemperatureResource {
+
+    @Inject
+    TemperatureRepository tempRepo; //name von diese Template bruder
+
+    @CheckedTemplate // wichtig, immer verwenden wenn neue Template für qute, du weißt bescheid
+    public static class Templates {
+        public static native TemplateInstance temperatures(List<Temperature> temps); //temps wird übergeben an template
+    }
+
+    @GET
+    @Path("temperature")
+    @Produces(MediaType.TEXT_HTML)
+    public TemplateInstance get() {
+        return Templates.temperatures(tempRepo.listAll()); //hier passiert übergabe von werten und so bro so quasi
+    }
+}
+----
+
+=== Was ist wichtig bro
+
+* nicht vergessen! Qute macht nur so rendern von webseite also du kannst nix werte machen zappzarap in html nur anzeigen lassen
+* nicht vergesssn! immer @CheckedTemplate und @RequestScoped machen
+
+== HTML
+
+Immer Template in *Resource Folder* machen.
+
+``recources.templates.TemperatureResource``
+
+[source,html]
+----
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Temp</title>
+</head>
+<body>
+
+
+<!-- HTML bruder du weißt.
+
+Das machst du wenn du so combobox haben willst.
+Dafür brauchst aber so fette java script -->
+
+<form action="/api/temperature" method="post" style="font: 10px sans-serif; color: steelblue;">
+    <label for="month">Choose a Month:</label>
+    <select name="month" id="month">
+        <option value="JANUARY">January</option>
+        <option value="FEBRUARY">February</option>
+        <option value="MARCH">March</option>
+        <option value="APRIL">April</option>
+        <option value="MAY">May</option>
+        <option value="JUNE">June</option>
+        <option value="JULY">July</option>
+        <option value="AUGUST">August</option>
+        <option value="SEPTEMBER">September</option>
+        <option value="OCTOBER">October</option>
+        <option value="NOVEMBER">November</option>
+        <option value="DECEMBER">December</option>
+    </select>
+    <input type="submit" value="Change Month"> <!-- diese submit is java script bruder -->
+</form>
+
+<!-- Und da hast baba Tabelle.-->
+
+<div style="font: 10px sans-serif; color: steelblue;">
+    <table>
+        <tr>
+            <th>Year</th>
+            <th>Temperature</th>
+            <th>Temp. graph.</th>
+        </tr>
+        {#for temp in temps} <!-- diese meier for schleife in html -->
+        <tr>
+            <td style="font: 10px sans-serif; text-align: left;color: steelblue;">
+                {temp.year} <!--bissi werte in html-->
+            </td>
+            <td style="font: 10px sans-serif; text-align: right;color: steelblue;">
+                {temp.temperature} °C
+            </td>
+            <td style="font: 10px sans-serif; text-align: left;color: white;">
+                <div style="background: steelblue; text-align: right;padding: 3px;margin: 1px;margin-left: 300px;width: {temp.getTempAsInt()}px;"> {temp.temperature}</div>
+
+            </td>
+        </tr>
+        {/for} <!-- ende for bruder -->
+    </table>
+</div>
+
+</body>
+</html>
+----
+
+== Application Prop
+
+[source,properties]
+----
+quarkus.datasource.db-kind = derby
+quarkus.datasource.username = app
+quarkus.datasource.password = app
+quarkus.datasource.jdbc.url = jdbc:derby://localhost:1527/db
+
+quarkus.hibernate-orm.database.generation = drop-and-create
+----
