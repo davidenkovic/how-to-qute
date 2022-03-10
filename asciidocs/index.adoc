@@ -126,6 +126,13 @@ public class TemperatureResource {
     public TemplateInstance get() {
         return Templates.temperatures(tempRepo.listAll()); //hier passiert übergabe von werten und so bro so quasi
     }
+
+    @POST
+    @Path("temperature")
+    @Produces(MediaType.TEXT_HTML)
+    public TemplateInstance postMonth(String month){
+        return Templates.temperatures(tempRepo.listAll().stream().filter(t -> t.getMonthTextual().equals(month.split("=")[1])).collect(Collectors.toList()));
+    }
 }
 ----
 
